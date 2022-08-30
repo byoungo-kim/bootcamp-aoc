@@ -49,7 +49,6 @@
     [int-sequence]
     (loop [index 0 sum 0 visited-value #{}]
       (let [current-sum (+ sum (nth int-sequence index))]
-        (prn current-sum)
         (if (contains? visited-value current-sum)
           current-sum
           (let [next-index (+ index 1)]
