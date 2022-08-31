@@ -7,9 +7,9 @@
   "Input: a file path
    Output: line-by-line separated array"
   [path] (-> path
-             (io/resource)
-             (slurp)
-             (clojure.string/split-lines)))
+             io/resource
+             slurp
+             clojure.string/split-lines))
 ;; 파트 1
 ;; 주어진 각각의 문자열에서, 같은 문자가 두번 혹은 세번씩 나타난다면 각각을 한번씩 센다.
 ;; 두번 나타난 문자가 있는 문자열의 수 * 세번 나타난 문자가 있는 문자열의 수를 반환하시오.
@@ -112,12 +112,12 @@
   (let [length (min (count first-string) (count second-string))]
     (str/join
      (for [i (range length)
-          :let [letter-of-first (nth first-string i)]
-          :let [letter-of-second (nth second-string i)]
-          :let [identical-letter letter-of-first]
-          :when (identical? letter-of-first letter-of-second)]
-     identical-letter)
-    )
+           :let [letter-of-first (nth first-string i)]
+           :let [letter-of-second (nth second-string i)]
+           :let [identical-letter letter-of-first]
+           :when (identical? letter-of-first letter-of-second)]
+       identical-letter)
+     )
     )
   )
 (defn find-strings-of-one-letter-diff
@@ -135,7 +135,8 @@
                                second-string
                                )]  
           :when (and (> i j) (= (count common-string) (dec (count first-string))))] 
-     common-string)))
+     common-string))
+    )
    )
 
 (comment
