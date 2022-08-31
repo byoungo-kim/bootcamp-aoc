@@ -82,16 +82,12 @@
              (get-frequencies)
              (check-frequencies)
              (aggregate-string-check-result num-of-duplicates)))
-        num-of-duplicates))
+        (reduce * num-of-duplicates)))
     )
     
   (count-ids ["abcdef" "bababc"])
 
-  (let [output (count-ids input-strings)]
-    (* (first output) (second output)))
-  )
-    
-
+  (count-ids input-strings)
 
 ;; 파트 2
 ;; 여러개의 문자열 중, 같은 위치에 정확히 하나의 문자가 다른 문자열 쌍에서 같은 부분만을 리턴하시오.
