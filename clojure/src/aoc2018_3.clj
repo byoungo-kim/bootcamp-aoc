@@ -34,93 +34,109 @@
 (defn parse-string
   "parse string into [id position-x position-y width height]
    Input: #1 @ 1,3: 4x4
-   Output: [1 1 3 4 4]"
+   Output: {:id 1 :start-x 1 :start-y 3 :width 4 :length 4}"
 [line-string]
-(->> line-string
-    (re-find #"#(\d+) @ (\d+),(\d+): (\d+)x(\d+)")
-     rest ;; delete pattern string
-     (map #(Integer/parseInt %))
-    ))
+(let [[id start-x start-y width length]
+      (->> line-string
+           (re-find #"#(\d+) @ (\d+),(\d+): (\d+)x(\d+)")
+           rest
+           (map #(Integer/parseInt %))
+           )
+      ]{:id id :start-x start-x :start-y start-y :width width :length length}))
 (defn parse-strings
   "parse strings by applying parse-string
-   "
+   Input: (\"#1 @ 1,3: 4x4\" \"#2 @ 3,1: 4x4\")
+   Output: ({:id 1 :start-x 1 :start-y 3 :width 4 :length 4}
+            {:id 2 :start-x 3 :start-y 1 :width 4 :length 4})"
   [strings]
-  (for [x strings
-        :let [parsed-input (parse-string x)]]
-    parsed-input))
+  (map parse-string strings))
 
-(defn create-set-for-rectangle
+(defn create-fabric-points
   "Generate a list of flattened indexes (y*width + x) composing a rectangle
-   Input: [x 1 3 4 4] 8 x is user id and i
+   Input: {:id 1 :start-x 1 :start-y 3 :width 4 :length 4} 8
    Output: #{26 27 28 29 34 35 36 37 42 43 44 45 50 51 52 53}"
-  [rectangle-data width]
-  (let [rectangle-point-set #{}]
-    (into rectangle-point-set 
-          (
-           for [x (range (nth rectangle-data 3)) 
-                y (range (nth rectangle-data 4)) 
-                :let [offset-x (second rectangle-data)
-                      offset-y (nth rectangle-data 2)
-                      point-index (+ (* (+ y offset-y) width) (+ x offset-x))]] 
-           point-index))))
+  [fabric suit-width] 
+    (set 
+     (for [x (range (fabric :width)) 
+           y (range (fabric :length)) 
+           :let [offset-x (fabric :start-x) 
+                 offset-y (fabric :start-y) 
+                 point-index (+ (* (+ y offset-y) suit-width) (+ x offset-x))]] 
+       point-index)))
 
-(defn get-width
+#_(set 1 2 3 4 3)
+(defn get-suit-width
   "Get the max x-width from the array of rectangle info
-   Input: [[1 1 3 4 4] [2 3 1 4 4]]
+   Input: [{:id 1 :start-x 1 :start-y 3 :width 4 :length 4}
+           {:id 2 :start-x 3 :start-y 1 :width 4 :length 4}]
    Output: 8"
-  [rectangle-data]
-  (apply max (for [x rectangle-data
-                   :let [
-                         bottom-right-x (inc (+ (second x) (nth x 3)))]]
-    bottom-right-x)))
+  [fabric-list]
+   (apply max 
+          (map (fn [fabric]  
+                 (inc (+ (fabric :start-x) (fabric :width)))) 
+               fabric-list)))
 
-(defn create-sets-from-rectangle-data
+(defn create-fabric-points-list
   "Create a number of sets corresponding to a given rectangle data
    Input: [[1 1 3 4 4] [2 3 1 4 4]]
-   Output:(#{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49} #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37})"
-  [rectangle-info-list]
-  (let [width (get-width rectangle-info-list)]
-    (
-     for [x rectangle-info-list
-          :let [rectangle-point-set (create-set-for-rectangle x width)]]
-     rectangle-point-set
-    ))
+   Output:({:id 1 :fabric-points #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}}
+           (:id 2 :fabric-points #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}))"
+  [fabric-list]
+  (let [width (get-suit-width fabric-list)]
+    (map (fn [fabric] {:id (fabric :id) :fabric-points (create-fabric-points fabric width)}) fabric-list)
+    )
   )
-(defn find-intersections-of-any-two-rectangles
-  "find an intersection of any two rectangle
+
+(defn parse-fabrics
+  "Parse fabrics in point"
+  [path]
+  (->> path
+       read-input
+       parse-strings
+       create-fabric-points-list)
+  )
+
+(defn find-all-overlaps
+  "find all overlaps of any two rectangle
    Input: [#{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49} #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}]
    Output: #{27 36 28 35}"
-  [rectangle-point-set-list]
-  (let [num-rectangles (count rectangle-point-set-list)]
-    (for [i (range num-rectangles)
-          j (range num-rectangles)
-          :let [intersection-point-set (set/intersection 
-                                        (nth rectangle-point-set-list i) 
-                                        (nth rectangle-point-set-list j))]
-          :when (> i j)] 
-      intersection-point-set)))
+  [fabric-list]
+  (
+    for [first-fabric fabric-list
+         second-fabric fabric-list
+         :let [intersection-point-set (set/intersection 
+                                        (first-fabric :fabric-points) 
+                                        (second-fabric :fabric-points))]
+          :when (> (first-fabric :id) (second-fabric :id))] 
+      intersection-point-set))
+
+
 
 (comment 
+  (re-find #"#(\d+) @ (\d+),(\d+): (\d+)x(\d+)" "#1 @ 1,3: 4x4")
   (parse-string "#1 @ 1,3: 4x4")
   (parse-strings ["#1 @ 1,3: 4x4" "#2 @ 3,1: 4x4"])
-  (get-width [[1 1 3 4 4] [2 3 1 4 4]])
-  (create-set-for-rectangle [1 1 3 4 4] 8)
-  [(create-set-for-rectangle [1 1 3 4 4] 8) (create-set-for-rectangle [2 3 1 4 4] 8)]
-  (create-sets-from-rectangle-data [[1 1 3 4 4] [2 3 1 4 4]])
-  (set/intersection (create-set-for-rectangle [1 1 3 4 4] 8) (create-set-for-rectangle [2 3 1 4 4] 8))
-  (count (set/intersection (create-set-for-rectangle [1 3 4 4] 7) (create-set-for-rectangle [3 1 4 4] 7)))
-  (count (apply set/union (create-sets-from-rectangle-data [[1 3 4 4] [3 1 4 4]])))
-  (find-intersections-of-any-two-rectangles [#{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49} #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}])
+  (get-suit-width (parse-strings ["#1 @ 1,3: 4x4" "#2 @ 3,1: 4x4"]))
+  (create-fabric-points {:id 1 :start-x 1 :start-y 3 :width 4 :length 4} 8)
+  [(create-fabric-points {:id 1 :start-x 1 :start-y 3 :width 4 :length 4} 8) (create-fabric-points {:id 2 :start-x 3 :start-y 1 :width 4 :length 4} 8)]
+  (create-fabric-points-list [{:id 1 :start-x 1 :start-y 3 :width 4 :length 4}
+                              {:id 2 :start-x 3 :start-y 1 :width 4 :length 4}])
+  (set/intersection (create-fabric-points [1 1 3 4 4] 8) (create-fabric-points [2 3 1 4 4] 8))
+  (count (set/intersection (create-fabric-points [1 3 4 4] 7) (create-fabric-points [3 1 4 4] 7)))
+  (count (apply set/union (create-fabric-points-list [[1 3 4 4] [3 1 4 4]])))
+  (find-all-overlaps [{:id 1, :fabric-points #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}}
+                      {:id 2, :fabric-points #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}}])
   (->> [#{24 15 21 31 22 36 29 28 17 23 35 14 16 38 30 37} #{24 4 25 17 3 12 2 23 19 11 9 5 26 16 10 18}]
        (apply set/intersection)
        count)
+
+  ;; (->> input
+  ;;     (map (fn [] )))     
   (->> "aoc2018_3.input" 
        ;; Parse
-       read-input 
-       parse-strings ;; parse input line by line by using regular expression
-       create-sets-from-rectangle-data ;; parse data into set for using set operation
+       parse-fabrics ;; parse data into set for using set operation
        ;; Process
-       find-intersections-of-any-two-rectangles
+       find-all-overlaps
        ;; Aggregate
        (apply set/union)
        ;; Print
@@ -137,58 +153,47 @@
 (defn create-sets-with-id-from-rectangle-data
   "Create a number of sets corresponding to a given rectangle data
    Input: [[1 1 3 4 4] [2 3 1 4 4] [3 5 5 2 2]]
-   Output: ([1 #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}]
-            [2 #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}]
-            [3 #{46 54 45 53}])"
-  [rectangle-info-list]
-  (let [width (get-width rectangle-info-list)]
-    (for [x rectangle-info-list
-          :let [rectangle-point-set-with-id [(first x) (create-set-for-rectangle x width)]]]
-      rectangle-point-set-with-id)))
+   Output: ({:id 1 :fabric-points #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}}
+            {:id 2 :fabric-points #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}}
+            {:id 3 :fabric-points #{46 54 45 53}})"
+  [fabric-list]
+  (let [width (get-suit-width fabric-list)]
+    (map (fn [fabric] {:id (fabric :id) :fabric-points (create-fabric-points fabric width)}) fabric-list
+     )))
 
 (defn find-union-of-intersctions-for-given-id
   "Find an union of all intersections relevant to the rectangle of given id
-   Input: ([1 #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}]
-           [2 #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}]
-           [3 #{46 54 45 53}])
-          3
-          0
+   Input: ({:id 1 :fabric-points #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}}
+           {:id 2 :fabric-points #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}}
+           {:id 3 :fabric-points #{46 54 45 53}})
           [1 #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}]
    Output: #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}"
-  [rectangle-point-set-list 
-   num-rectangles
-   target-index
-   current-rectangle-info]
-  (let [current-rectangle (second current-rectangle-info)]
+  [fabric-points-list 
+   target-fabric]
+  
    (apply set/union
-          (for [j (range num-rectangles) 
-                :let [jth-rectangle (nth rectangle-point-set-list j) 
-                      intersection-point-set (set/intersection 
-                                              current-rectangle 
-                                              (second jth-rectangle))]
-                :when (not= target-index j)] 
-            intersection-point-set))))
+          (for [fabric fabric-points-list 
+                :let [intersection-point-set (set/intersection 
+                                              (target-fabric :fabric-points)
+                                              (fabric :fabric-points))]
+                :when (not= (target-fabric :id) (fabric :id))] 
+            intersection-point-set)))
 
-(defn find-id-of-no-intersection
+(defn discover-non-overlapped-fabric
   "find the id of the first rectange which does not intersect with any other rectangles
-   Input: ([1 #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}]
-           [2 #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}]
-           [3 #{46 54 45 53}])
+   Input: ({:id 1 :fabric-points #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}}
+           {:id 2 :fabric-points #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}}
+           {:id 3 :fabric-points #{46 54 45 53}})
    Output: 3"
-  [rectangle-point-set-list]
-  (
-   let [num-rectangles (count rectangle-point-set-list)] 
-   (take 1
-         (for [i (range num-rectangles)
-               :let [current-rectangle-info (nth rectangle-point-set-list i)
-                     rectangle-id (first current-rectangle-info)
-                     union-of-intersections (find-union-of-intersctions-for-given-id
-                                             rectangle-point-set-list
-                                             num-rectangles
-                                             i
-                                             current-rectangle-info)]
+  [fabric-point-set-list]
+  (take 1
+   (for [target-fabric fabric-point-set-list
+         :let [union-of-intersections
+               (find-union-of-intersctions-for-given-id
+                fabric-point-set-list
+                target-fabric)]
                :when (empty? union-of-intersections)]
-           rectangle-id)))
+           target-fabric))
   )
 
 (comment
@@ -198,28 +203,31 @@
                                       create-sets-with-id-from-rectangle-data)
         num-rectangles (count rectangle-point-set-list)]
     (find-union-of-intersctions-for-given-id rectangle-point-set-list num-rectangles 0 (second rectangle-point-set-list)))
-  (->> [[1 1 3 4 4] [2 3 1 4 4] [3 5 5 2 2]]
+  (->> [{:id 1 :start-x 1 :start-y 3 :width 4 :length 4}
+        {:id 2 :start-x 3 :start-y 1 :width 4 :length 4}
+        {:id 3 :start-x 5 :start-y 5 :width 2 :length 2}]
        create-sets-with-id-from-rectangle-data
-       find-id-of-no-intersection)
-  (let [rectangle-point-set-list (->> "aoc2018_3.input" 
+       discover-non-overlapped-fabric)
+  (let [fabric-points-list (->> "aoc2018_3.input" 
                                       read-input 
                                       parse-strings 
                                       create-sets-with-id-from-rectangle-data)
-        num-rectangles (count rectangle-point-set-list)
         ]
-    (
-     find-union-of-intersctions-for-given-id rectangle-point-set-list num-rectangles 0 (second rectangle-point-set-list)
+    (find-union-of-intersctions-for-given-id fabric-points-list (second fabric-points-list))
     )
-    )
-  (->> "aoc2018_3.input" 
+  (-> "aoc2018_3.input" 
        ;; Parse
-       read-input 
-       parse-strings 
+       parse-fabrics
        ;; Process
-       create-sets-with-id-from-rectangle-data
        ;; Aggregate
-       find-id-of-no-intersection
-       prn)
+       discover-non-overlapped-fabric
+       ;;Print
+       (get :id))
   ;; ANS 1260
   ;; too slow, how to boost up?
+  ;; https://bsless.github.io/code-smells/
+  ;; https://www.notion.so/greenlabs/Clojure-Do-Don-t-01466ef3b1a34885a9663ff64a8b5255
+  ;;-> iterate
+  ;; take 5
+  ;; drop-while, take-while
   )
