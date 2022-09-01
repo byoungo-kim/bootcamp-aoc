@@ -145,6 +145,7 @@
     (for [x rectangle-info-list
           :let [rectangle-point-set-with-id [(first x) (create-set-for-rectangle x width)]]]
       rectangle-point-set-with-id)))
+
 (defn find-union-of-intersctions-for-given-id
   "Find an union of all intersections relevant to the rectangle of given id
    Input: ([1 #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}]
@@ -169,20 +170,25 @@
             intersection-point-set))))
 
 (defn find-id-of-no-intersection
-  ""
+  "find the id of the first rectange which does not intersect with any other rectangles
+   Input: ([1 #{27 50 33 36 41 43 44 28 51 25 34 35 26 52 42 49}]
+           [2 #{20 27 21 13 22 36 29 28 12 35 19 11 14 38 30 37}]
+           [3 #{46 54 45 53}])
+   Output: 3"
   [rectangle-point-set-list]
   (
    let [num-rectangles (count rectangle-point-set-list)] 
-   (take 1 (for [i (range num-rectangles) 
-                 :let [current-rectangle-info (nth rectangle-point-set-list i) 
-                       rectangle-id (first current-rectangle-info) 
-                       union-of-intersections (find-union-of-intersctions-for-given-id  
-                                               rectangle-point-set-list 
-                                               num-rectangles 
-                                               i 
-                                               current-rectangle-info)] 
-                 :when (empty? union-of-intersections)] 
-             rectangle-id)))
+   (take 1
+         (for [i (range num-rectangles)
+               :let [current-rectangle-info (nth rectangle-point-set-list i)
+                     rectangle-id (first current-rectangle-info)
+                     union-of-intersections (find-union-of-intersctions-for-given-id
+                                             rectangle-point-set-list
+                                             num-rectangles
+                                             i
+                                             current-rectangle-info)]
+               :when (empty? union-of-intersections)]
+           rectangle-id)))
   )
 
 (comment
