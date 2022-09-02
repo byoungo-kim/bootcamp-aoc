@@ -1,5 +1,6 @@
 (ns aoc2018-1
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]))
 
 ;; Get input
 (defn read-input
@@ -8,7 +9,7 @@
   [path] (-> path 
              io/resource
              slurp
-             clojure.string/split-lines))
+             str/split-lines))
 
 (defn convert-into-integer
   "input: integer string array
@@ -21,10 +22,8 @@
  "sum all elements
   Input: [1 2 3 4]
   Output: 10"
-  [int-sequence sum]
-  (if (seq int-sequence) 
-    (sum-all (rest int-sequence) (+ sum (first int-sequence)))
-    sum)
+  [int-sequence]
+  (take-last 1 (reductions + int-sequence))
 )
 
 ;; 파트 1
@@ -37,7 +36,7 @@
 (-> "aoc2018_1_1.input"
     read-input
     convert-into-integer
-    (sum-all 0))
+    sum-all)
   )
 ;; ANS: 502
 
@@ -47,23 +46,37 @@
 ;; 0 -> 3 (+3) -> 6 (+3) -> 10(+4) -> 8(-2) -> 4(-4) -> 7(+3) -> 10(+3) -> ...
 ;; atom을 쓰면 될 거 같다는 걸 찾았으나 현재는 여기까지..
 
-(defn sum-until-duplicate
+
+(defn cycle-sum
   "Input: integer array
      Output: calculate sum of array until the same sum value found"
-  [int-sequence visited-value sum]
-  (if (not (contains? visited-value sum))
-    (sum-until-duplicate (rest int-sequence) (conj visited-value sum) (+ (first int-sequence) sum))
-    sum))
+  [int-sequence]
+  (->> int-sequence
+       cycle
+       (reductions (fn [accumulated num] (let [sum (+ (:sum accumulated) num)]
+                                            (if-not
+                                             (contains? (:visited-sums accumulated) sum)
+                                              {:continue true
+                                               :visited-sums (conj (:visited-sums accumulated) sum)
+                                               :sum sum}
+                                              {:continue false
+                                               :visited-sums (:visited-sums accumulated)
+                                               :sum sum})))
+                   {:continue true :visited-sums #{} :sum 0})
+       (take-while #(true? (:continue %)))
+       ))
 
 (comment
+;; reductions 써보기!!
+  ;; iterate + drop-while + first
+  ;; iterate + take-while + last
   
-  (-> "aoc2018_1_1.input"
-      read-input
-      convert-into-integer
-      cycle
-      (sum-until-duplicate #{} 0))
-  )
-
+  (->> "aoc2018_1_1.input"
+       read-input
+       convert-into-integer
+       cycle-sum
+       (take-last 5))
+)
 ;; ANS: 71961
-
+;; 새코드.. ANS??? 71943...take-while의 조건이 문제일까?
 ;; cycle reductions
