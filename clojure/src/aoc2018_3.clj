@@ -200,9 +200,8 @@
   (->> [[1 1 3 4 4] [2 3 1 4 4] [3 5 5 2 2]]
        create-sets-with-id-from-rectangle-data)
   (let [rectangle-point-set-list (->> [[1 1 3 4 4] [2 3 1 4 4] [3 5 5 2 2]]
-                                      create-sets-with-id-from-rectangle-data)
-        num-rectangles (count rectangle-point-set-list)]
-    (find-union-of-intersctions-for-given-id rectangle-point-set-list num-rectangles 0 (second rectangle-point-set-list)))
+                                      create-sets-with-id-from-rectangle-data)]
+    (find-union-of-intersctions-for-given-id rectangle-point-set-list (second rectangle-point-set-list)))
   (->> [{:id 1 :start-x 1 :start-y 3 :width 4 :length 4}
         {:id 2 :start-x 3 :start-y 1 :width 4 :length 4}
         {:id 3 :start-x 5 :start-y 5 :width 2 :length 2}]
