@@ -37,9 +37,21 @@
    Input: \"[1518-11-05 00:03] Guard #99 begins shift\"
    Output: {:year 1518 :month 11 :date 5 :hour 0 :minute 3 :event-type \"Guard\" :event-value \"#99\"}"
   [input-string]
-  (let [[_ _ _ _ _ minute event-type event-value]
+  (let [[_
+         _
+         _
+         _
+         _
+         minute
+         event-type
+         event-value]
         (re-find #"\[(\d+)-(\d+)-(\d+) (\d+)\:(\d+)\] (\S+) (\S+)" input-string)]
-    {:minute (Integer/parseInt minute) :event-type event-type :event-value (if (= event-type "Guard") (str/join (rest event-value)) event-value)}))
+    {:minute (Integer/parseInt minute)
+     :event-type event-type
+     :event-value
+     (if (= event-type "Guard")
+       (str/join (rest event-value))
+       event-value)}))
                  
   
 
@@ -91,7 +103,9 @@
                                     (let [first-minute (:minute (first sleep-event))
                                           second-minute (:minute (second sleep-event))] (take-while #(> second-minute %) (iterate inc first-minute))))  
                                   (partition 2 (second item)))] 
-                {:id (Integer/parseInt (:event-value (first start-event))) :sleep-events sleep-events}))))) 
+                {:id (Integer/parseInt
+                      (:event-value (first start-event)))
+                 :sleep-events sleep-events})))))
          
 
 (defn find-guards
