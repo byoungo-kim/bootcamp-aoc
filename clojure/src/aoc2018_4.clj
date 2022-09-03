@@ -101,7 +101,10 @@
                     sleep-events (mapcat  
                                   (fn [sleep-event] 
                                     (let [first-minute (:minute (first sleep-event))
-                                          second-minute (:minute (second sleep-event))] (take-while #(> second-minute %) (iterate inc first-minute))))  
+                                          second-minute (:minute (second sleep-event))] 
+                                      (take-while
+                                       #(> second-minute %)
+                                       (iterate inc first-minute))))
                                   (partition 2 (second item)))] 
                 {:id (Integer/parseInt
                       (:event-value (first start-event)))
@@ -162,12 +165,38 @@
         ] 
     guard-of-most-asleep))
 
-(defn answer-part1
-  "calculate the answer to the part 1
-   Input: {:id 10, :total-sleep-minutes 50, :most-frequent-sleep-minute 24}
-   Output: 240"
-  [guard-statistic]
-  (* (:id guard-statistic) (:most-frequent-sleep-minute guard-statistic))
+(defn group-events-by-guard
+  "Group the sleep events for each guard
+   Input: ({:id 10,
+           :sleep-events
+            (5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54)}
+          {:id 99, :sleep-events (40 41 42 43 44 45 46 47 48 49)}
+          {:id 10, :sleep-events (24 25 26 27 28)}
+          {:id 99, :sleep-events (36 37 38 39 40 41 42 43 44 45)}
+          {:id 99, :sleep-events (45 46 47 48 49 50 51 52 53 54)})
+   Output: ({:guard-id 10 :sleeep-events (5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 24 25 26 27 28)}
+            {:guard-id 99 :sleeep-events (40 41 42 43 44 45 46 47 48 49 36 37 38 39 40 41 42 43 44 45 45 46 47 48 49 50 51 52 53 54)})
+   "
+  [daily-sleep-history]
+  (for [guard-id (find-guards daily-sleep-history)]
+    {:guard-id guard-id
+     :sleep-events (apply concat
+                    (for [daily-sleep daily-sleep-history 
+                          :let [target-id (:id daily-sleep)] 
+                          :when (= target-id guard-id)] 
+                      (:sleep-events daily-sleep)))})
+  )
+
+(defn find-longest-sleep-event
+  "Find the longest sleep events
+   Input: ({:guard-id 10 :sleeep-events (5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 24 25 26 27 28)}
+           {:guard-id 99 :sleeep-events (40 41 42 43 44 45 46 47 48 49 36 37 38 39 40 41 42 43 44 45 45 46 47 48 49 50 51 52 53 54)})
+   Output: {:guard-id 10 :sleeep-events (5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 24 25 26 27 28)}"
+  [grouped-sleep-events]
+  (->> grouped-sleep-events 
+       (sort #(> (count (:sleep-events %1)) (count (:sleep-events %2))))
+       (take 3)
+       )
   )
 
 (defn make-guard-statistics
@@ -201,14 +230,33 @@
                                 })) 
   ))
 
-#_(defn print)
+(defn find-the-most-frequent-minute
+  "Find the most frequent minute on a given grouped sleep event
+   Input: {:guard-id 10 :sleeep-events (5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 24 25 26 27 28)}
+   Output: {:guard-id 10 :most-frequent-sleep-minute 24}"
+  [grouped-sleep-event]
+  {:guard-id (:guard-id grouped-sleep-event)
+   :total-sleep-minutes (count (:sleep-events grouped-sleep-event))
+   :most-frequent-sleep-minute (apply max-key val 
+                                        (frequencies (:sleep-events grouped-sleep-event))
+                                      )
+   :top-3-frequencies (take 3 (sort #(> (val %1) (val %2)) 
+                                    (frequencies (:sleep-events grouped-sleep-event))))}
+  )
+
+(defn answer-part1
+  "calculate the answer to the part 1
+   Input: {:guard-id 10 :sleeep-events (5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 24 25 26 27 28)}
+   Output: 240"
+  [answer-info]
+  (* (:guard-id answer-info) (first (:most-frequent-sleep-minute answer-info))))
 
 (comment
   ;;need sort of records before parse event
   (let [input-strings 
         '("[1518-11-01 00:00] Guard #10 begins shift"
-          "[1518-11-01 00:05] falls asleep" 
-          "[1518-11-01 00:25] wakes up" 
+          "[1518-11-01 00:05] falls asleep"
+          "[1518-11-01 00:25] wakes up"
           "[1518-11-01 00:30] falls asleep"
           "[1518-11-01 00:55] wakes up"
           "[1518-11-01 23:58] Guard #99 begins shift"
@@ -222,15 +270,32 @@
           "[1518-11-04 00:46] wakes up"
           "[1518-11-05 00:03] Guard #99 begins shift"
           "[1518-11-05 00:45] falls asleep"
-          "[1518-11-05 00:55] wakes up")]
+          "[1518-11-05 00:55] wakes up"
+          "[1518-11-06 00:00] Guard #10 begins shift"
+          "[1518-11-06 00:05] falls asleep"
+          "[1518-11-06 00:25] wakes up"
+          "[1518-11-06 00:30] falls asleep"
+          "[1518-11-06 00:55] wakes up"
+          "[1518-11-06 23:58] Guard #99 begins shift"
+          "[1518-11-07 00:40] falls asleep"
+          "[1518-11-07 00:50] wakes up"
+          "[1518-11-08 00:05] Guard #10 begins shift"
+          "[1518-11-08 00:24] falls asleep"
+          "[1518-11-08 00:29] wakes up"
+          "[1518-11-09 00:02] Guard #99 begins shift"
+          "[1518-11-09 00:36] falls asleep"
+          "[1518-11-09 00:46] wakes up"
+          "[1518-11-10 00:03] Guard #99 begins shift"
+          "[1518-11-10 00:45] falls asleep"
+          "[1518-11-10 00:55] wakes up")]
    (->> (map parse-event input-strings)
         ;; process
         daily-sleep-history
-        ;;aggregate
-        make-guard-statistics
-        #_(sort-by :total-sleep-minutes >)
-        #_(take 1)
-        #_answer-part1
+        ;;aggregate 
+        group-events-by-guard
+        find-longest-sleep-event
+        find-the-most-frequent-minute 
+        answer-part1
         ))
        
 (* 1021 29)
@@ -255,11 +320,10 @@
   (->> "aoc2018_4.input"
        parse-events
        daily-sleep-history
-       #_(filter #(= 1021 (:id %)))
-       make-guard-statistics
-       (sort-by :total-sleep-minutes >)
-       #_(take 1)
-       (map answer-part1))
+       group-events-by-guard
+       find-longest-sleep-event
+       (map find-the-most-frequent-minute)
+       #_(map answer-part1)) ; ignore for testing current value
   )
 
 ;; ({:id 1021, :total-sleep-minutes 493, :most-frequent-sleep-minute 29}29609
@@ -285,7 +349,7 @@
 ;;  {:id 283, :total-sleep-minutes 135, :most-frequent-sleep-minute 27}7641
 ;;  {:id 3533, :total-sleep-minutes 58, :most-frequent-sleep-minute 48}169584
 ;;  {:id 1723, :total-sleep-minutes 55, :most-frequent-sleep-minute 39})67197
-;; ANS: 29609
+;; ANS: 29609 1021 * 29
 
 ;; 이현님 답
 ;; 30630
