@@ -33,13 +33,14 @@
    Input: \"dabAcCaCBAcCcaDA\"
    Output: \"dabCBAcaDA\""
    [polymers]
-   (last 
-    (reductions (fn [stack polymer] 
-                  (if-not (empty? stack)
-                    (cond 
-                      (check-polymers (peek stack) polymer) (pop stack) 
-                      :else (conj stack polymer)) 
-                    (conj stack polymer))) [] (char-array polymers))))
+   (str/join 
+    (last 
+     (reductions (fn [stack polymer]
+                   (if-not (empty? stack)
+                     (cond
+                       (check-polymers (peek stack) polymer) (pop stack)
+                       :else (conj stack polymer))
+                     (conj stack polymer))) [] (char-array polymers)))))
 
 ;; 주어진 input 에서 최종으로 남는 문자열을 리턴하시오.
 (comment
@@ -48,7 +49,6 @@
   (->> "aoc2018_5.input"
        read-input
        full-reaction 
-       str/join
        count
        )
   )
@@ -64,20 +64,29 @@
    Output: (\"dbcCCBcCcD\" \"daAcCaCAcCcaDA\" \"dabAaBAaDA\" \"abAcCaCBAcCcaA\")"
   [polymers]
   (let [collapsing-polymers (keys (frequencies polymers))]
-    (for [collapsing-polymer "abcdefghijklmnopqrstuvwxyz"]
+    (for [collapsing-polymer collapsing-polymers]
       (-> polymers
           (str/replace (str collapsing-polymer) "")
           (str/replace (str/upper-case (str collapsing-polymer)) ""))
   )))
+
+(defn non-collapsing-full-reactions
+  "React all possible non-collapsing-full-reactions
+   Input: \"dabAcCaCBAcCcaDA\"
+   Output: (\"dbCBcD\" \"daCAcaDA\" \"daDA\" \"abAaCBAc\")"
+  [polymers]
+  (->> polymers
+       non-collapsing-polymers
+       (map full-reaction)
+       (map str/join))
+  )
 
 (comment
   (frequencies "dabAcCaCBAcCcaDA")
   (apply min (map count (map str/join (map full-reaction (non-collapsing-polymers "dabAcCaCBAcCcaDA")))))
   (->> "aoc2018_5.input"
        read-input
-       non-collapsing-polymers
-       (map full-reaction)
-       (map str/join)
+       non-collapsing-full-reactions
        (map count)
        (apply min))
   )
