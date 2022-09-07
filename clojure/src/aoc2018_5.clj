@@ -22,9 +22,7 @@
    Otput: true"
   [polymer-a polymer-b]
   (let [diff (- (int polymer-a) (int polymer-b))]
-    (if (neg? diff)
-      (= (* -1 diff) 32) ; calculate the diff is 32 which is upper and lower case character value diff
-      (= diff 32))
+    (= (abs diff) 32) ; calculate the diff is 32 which is upper and lower case character value diff
     )
   )
 
@@ -77,8 +75,7 @@
   [polymers]
   (->> polymers
        non-collapsing-polymers
-       (map full-reaction)
-       (map str/join))
+       (map full-reaction))
   )
 
 (comment
