@@ -38,7 +38,7 @@
        (map #(str/join " " %)) ;merge multiple lines into single string
        (filter not-empty)
        (map #(str/split % #" ")) 
-       (map (fn [passport]
+       (map (fn [passport] ; refactoring
               (reduce conj
                       (map
                        (fn [passport-item]
@@ -114,12 +114,12 @@
    Input: \"153in\"
    Output: false"
   [height]
-  (let [[height-string] (re-find #"(\d+)" height)
+  (let [[_ height-string unit] (re-find #"(\d+)(\S+)" height)
         height-value (Integer/parseInt height-string)]
-    (or (and (str/ends-with? height "in")
-             (and (> height-value 58) (< height-value 77)))
-        (and (str/ends-with? height "cm")
-             (and (> height-value 149) (< height-value 194))))
+    (case unit
+      "in" (< 58 height-value 77)
+      "cm" (< 149 height-value 194)
+      :else false)
     ))
 
 (defn check-year-range
@@ -128,14 +128,13 @@
    Output: true"
   [year min-year max-year]
   (let [year-value (Integer/parseInt year)](and (>= year-value min-year) (<= year-value max-year))))
-
-(def color-regex #"#[a-f0-9]{6}")
-(spec/def :tight-passport/byr (spec/and string? #(check-year-range % 1920 2002)))
-(spec/def :tight-passport/ecl (spec/and string? #(contains? (frequencies '("amb" "blu" "brn" "gry" "grn" "hzl" "oth")) %)))
-(spec/def :tight-passport/eyr (spec/and string? #(check-year-range % 2020 2030)))
-(spec/def :tight-passport/hcl (spec/and string? #(re-matches color-regex %)))
+;; int-in
+(spec/def :tight-passport/byr (spec/and string? #(spec/int-in-range? 1920 2003 (Integer/parseInt %))))
+(spec/def :tight-passport/ecl (spec/and string? #(contains? #{"amb" "blu" "brn" "gry" "grn" "hzl" "oth"} %)))
+(spec/def :tight-passport/eyr (spec/and string? #(spec/int-in-range? 2020 2031 (Integer/parseInt %)))) 
+(spec/def :tight-passport/hcl (spec/and string? #(re-matches #"#[a-f0-9]{6}" %)))
 (spec/def :tight-passport/hgt (spec/and string? check-height))
-(spec/def :tight-passport/iyr (spec/and string? #(check-year-range % 2010 2020)))
+(spec/def :tight-passport/iyr (spec/and string? #(spec/int-in-range? 2010 2021 (Integer/parseInt %))))
 (spec/def :tight-passport/pid (spec/and string? #(re-matches #"[0-9]{9}" %)))
 (spec/def :tight-passport/cid string?)
 (spec/def :tight-passport/option-cid
@@ -150,7 +149,7 @@
 
 (defn parse-tight-passports
   "Group input strings for each passport
-   Input: (\"ecl:gry pid:860033327 eyr:2020 hcl:#fffffd\" \"byr:1937 iyr:2017 cid:147 hgt:183cm\" \"\n\")
+   Input: (\"ecl:gry pid:860033327 eyr:2020 hcl:#fffffd byr:1937 iyr:2017 cid:147 hgt:183cm\" \"\n\")
    Output: (\"ecl:gry pid:860033327 eyr:2020 hcl:#fffffd byr:1937 iyr:2017 cid:147 hgt:183cm\")"
   [input-strings]
   (->> input-strings
@@ -162,23 +161,9 @@
               (reduce conj
                       (map
                        (fn [passport-item]
-                         (cond
-                           (str/starts-with? passport-item "byr")
-                           {:tight-passport/byr (let [[_ val] (re-find #"byr:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "cid")
-                           {:tight-passport/cid (let [[_ val] (re-find #"cid:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "ecl")
-                           {:tight-passport/ecl (let [[_ val] (re-find #"ecl:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "eyr")
-                           {:tight-passport/eyr (let [[_ val] (re-find #"eyr:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "hcl")
-                           {:tight-passport/hcl (let [[_ val] (re-find #"hcl:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "hgt")
-                           {:tight-passport/hgt (let [[_ val] (re-find #"hgt:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "iyr")
-                           {:tight-passport/iyr (let [[_ val] (re-find #"iyr:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "pid")
-                           {:tight-passport/pid (let [[_ val] (re-find #"pid:(\S+)" passport-item)] val)})) passport))))))
+                         (let [[_ key val] (re-find #"(\S+):(\S+)" passport-item)]
+                           {(keyword "tight-passport" key) val}))
+                       passport))))))
 
 (defn filter-invalid-tight-passports
   "Filter invalid passport strings"
@@ -189,7 +174,7 @@
 (comment
   (check-height "183cm")
   (spec/explain :tight-passport/option-cid {:tight-passport/byr "1937" :tight-passport/cid "147" :tight-passport/ecl "gry"
-                                     :tight-passport/eyr "2020" :tight-passport/hcl "#fffffd" :tight-passport/hgt "194cm"
+                                     :tight-passport/eyr "2020" :tight-passport/hcl "#fffffd" :tight-passport/hgt "193cm"
                                      :tight-passport/iyr "2017" :tight-passport/pid "060033327"})
   (->> ["ecl:gry pid:860033327 eyr:2020 hcl:#fffffd"
         "byr:1937 iyr:2017 cid:147 hgt:183cm"
@@ -205,10 +190,13 @@
         "hcl:#cfa07d eyr:2025 pid:166559648"
         "iyr:2011 ecl:brn hgt:59in"]
        parse-tight-passports
-       filter-invalid-tight-passports
+       (filter #(spec/valid? :tight-passport/option-cid %))
        count)
   (->> "aoc2020_4.input"
        read-input
-       parse-tight-passports
-       filter-invalid-tight-passports
-       count))
+       parse-tight-passports 
+       (filter #(spec/valid? :tight-passport/option-cid %))
+       count)
+  )
+
+;; refactoring: parsing -> map-> passport -> count
