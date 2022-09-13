@@ -59,7 +59,7 @@
          workers workers
          taken-steps []]
     (let [sorted-steps (sort-by val next-step-counts)
-          taken-step (first (first sorted-steps))
+          taken-step (key (first sorted-steps))
           new-remained-steps (filter 
                               (fn [step] (not= (:step step) taken-step))
                               remained-steps)
