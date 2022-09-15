@@ -74,7 +74,7 @@
 
 (defn next-snapshot
   "Make a next snapshot"
-  [[snapshot]]
+  [snapshot]
   (let [sorted-steps (count-next-steps (:remained-steps snapshot) (:remained-requirements snapshot))
         in-progress-steps (set (map :step
                                     (filter (fn [worker-status] (pos? (:remained-time worker-status))) (:workers snapshot))))
@@ -86,11 +86,11 @@
                                     (fn [worker] (update-in worker [:remained-time] dec))))
         completed-steps (set (map :step
                                   (filter (fn [worker-status] (zero? (:remained-time worker-status))) updated-worker-status)))] 
-    [{:remained-steps (remove #(completed-steps %) (:remained-steps snapshot))
+    {:remained-steps (remove #(completed-steps %) (:remained-steps snapshot))
       :remained-requirements (remove #(completed-steps (:step %)) (:remained-requirements snapshot)) ;completed-steps를 let 에서 한번에 set으로 만들기
       :workers updated-worker-status
       :taken-steps (concat (:taken-steps snapshot) (seq completed-steps))
-      :working-time (inc (:working-time snapshot))}]))
+      :working-time (inc (:working-time snapshot))}))
 
 (defn run-steps
   "Generate a schedule upon n workers
@@ -106,11 +106,13 @@
             :working-time 21)"
   [workers requirements]
   (let [all-steps (find-all-steps requirements)]
-    (iterate next-snapshot [{:remained-steps all-steps
-                             :remained-requirements requirements
-                             :workers workers
-                             :taken-steps ()
-                             :working-time 0}])))
+    (drop-while
+     #(some? (seq (:remained-steps %)))
+     (iterate next-snapshot {:remained-steps all-steps
+                              :remained-requirements requirements
+                              :workers workers
+                              :taken-steps ()
+                              :working-time 0}))))
 
 
 ;;part 1
@@ -124,34 +126,22 @@
         "Step F must be finished before step E can begin."]
        (map parse-steps)
        (sort-by :step)
-       (run-steps [{:remained-time 0}])
-       (drop-while
-        #(some? (seq (:remained-steps (first %)))))
+       (run-steps [{:remained-time 0}]) 
        (take 1)
-       first
        first
        :taken-steps
        str/join)
   (->> "aoc2018_7.input"
        parse-input
        (run-steps [{:remained-time 0}])
-       (drop-while
-        #(some? (seq (:remained-steps (first %)))))
-       (take 1)
-       first
+       (take 1) 
        first
        :taken-steps
        str/join)
   )
 
 ;; part 2
-(comment
-  ;; work-in-progress
-
-  (let [state {:a 1}]
-    (inc {}))
-
-
+(comment 
   (->> ["Step C must be finished before step A can begin."
         "Step C must be finished before step F can begin."
         "Step A must be finished before step B can begin."
@@ -166,15 +156,8 @@
 
   (->> "aoc2018_7.input"
        parse-input
-       (run-steps [{:remained-time 0} {:remained-time 0} {:remained-time 0} {:remained-time 0} {:remained-time 0}])
-       (drop-while
-        #(some? (seq (:remained-steps (first %)))))
-       (take 1)
-       #_first
-       #_first
-       #_:working-time)
-  (->> "aoc2018_7.input"
-       parse-input
-       (run-steps [{:remained-time 0} {:remained-time 0}])
-       str/join)
+       (run-steps [{:remained-time 0} {:remained-time 0} {:remained-time 0} {:remained-time 0} {:remained-time 0}]) 
+       (take 1) 
+       first
+       :working-time)
   )
