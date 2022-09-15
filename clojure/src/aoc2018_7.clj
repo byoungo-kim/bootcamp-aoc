@@ -73,7 +73,31 @@
     ))
 
 (defn next-snapshot
-  "Make a next snapshot"
+  "Make a next snapshot
+   Input: {:remained-steps (\"A\" \"B\" \"C\" \"D\" \"E\" \"F\"),
+           :remained-requirements
+           ({:step \"A\", :next-step \"B\"}
+            {:step \"A\", :next-step \"D\"}
+            {:step \"B\", :next-step \"E\"}
+            {:step \"C\", :next-step \"A\"}
+            {:step \"C\", :next-step \"F\"}
+            {:step \"D\", :next-step \"E\"}
+            {:step \"F\", :next-step \"E\"}),
+           :workers ({:step \"C\", :remained-time 2} {:remained-time -1}),
+           :taken-steps (),
+           :working-time 1}
+   Output: {:remained-steps (\"A\" \"B\" \"C\" \"D\" \"E\" \"F\"),
+           :remained-requirements
+           ({:step \"A\", :next-step \"B\"}
+            {:step \"A\", :next-step \"D\"}
+            {:step \"B\", :next-step \"E\"}
+            {:step \"C\", :next-step \"A\"}
+            {:step \"C\", :next-step \"F\"}
+            {:step \"D\", :next-step \"E\"}
+            {:step \"F\", :next-step \"E\"}),
+           :workers ({:step \"C\", :remained-time 1} {:remained-time -2}),
+           :taken-steps (),
+           :working-time 1}"
   [snapshot]
   (let [sorted-steps (count-next-steps (:remained-steps snapshot) (:remained-requirements snapshot))
         in-progress-steps (set (map :step
@@ -152,7 +176,9 @@
        (map parse-steps)
        (sort-by :step)
        (run-steps [{:remained-time 0} {:remained-time 0}]) 
-       (take 16))
+       (take 1)
+       first
+       :working-time)
 
   (->> "aoc2018_7.input"
        parse-input
