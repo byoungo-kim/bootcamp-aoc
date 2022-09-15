@@ -3,13 +3,42 @@
             [clojure.string :as str]
             [clojure.set :as set]))
 
-(defn parse-steps
+(defn parse-requirement
   "Parse the requirement from a string
    Input: \"Step C must be finished before step A can begin.\"
    Output: {:step \"C\" :requirement \"A\"}"
   [line-string]
   (let [[_ step next-step] (re-find #"Step (\S+) must be finished before step (\S+) can begin." line-string)]
     {:step step :next-step next-step}))
+
+(defn parse-requirements
+  "Input: a file path
+   Output: parsed seq of requirements"
+  [path] (->> path
+              io/resource
+              slurp
+              clojure.string/split-lines
+              (map parse-requirement)
+              (sort-by :step)))
+
+(defn assign-steps
+  "assign steps to worker
+   Input: ({:remained-time 1} {:remained-time 0}) ; workers
+          (\"C\") ; next-steps
+   Output: {:workers ({:remained-time 1} {:step \"C\" :remained-time 63})}"
+  [workers next-steps]
+  (let [free-workers (filter (fn [worker] (<= (:remained-time worker) 0)) workers)
+        busy-workers (filter (fn [worker] (pos? (:remained-time worker))) workers)]
+    (concat (filter identity
+                    (for [i (range (count free-workers))]
+                      (cond
+                        (< i (count next-steps)) {:step (nth next-steps i) 
+                                                  :remained-time (+ 61 
+                                                                    (- 
+                                                                     (int (char (first (nth next-steps i)))) 
+                                                                     (int \A)))}
+                        :else (nth free-workers i)))) busy-workers)
+    ))
 
 (defn find-all-steps
   "Find the all steps which need to be handled
@@ -26,6 +55,7 @@
        (mapcat (fn [step] [(:step step) (:next-step step)]))
        set ; remove duplicates
        sort)) ; sort 
+
 (defn count-next-steps
   "Find all existing steps
    Input: {:step \"C\" :next-step \"A\"}
@@ -36,41 +66,16 @@
           {:step \"F\" :next-step \"E\"}
           {:step \"C\" :next-step \"F\"}
    Output: ([\"A\" 1] [\"B\" 1] [\"C\" 0] [\"D\" 1] [\"E\" 3] [\"F\" 1])"
-   [required-steps requirements]
-   (let [all-steps (->> required-steps
-                        (map (fn [key] {key 0})) ; initialize with zero
-                        (reduce conj)) ; convert into
-         ]
-     (->> requirements 
-          (map (fn [step] (:next-step step)))
-          frequencies
-          (merge all-steps)
-          (sort-by key))))
-
-(defn parse-input
-  "Input: a file path
-   Output: line-by-line separated array"
-  [path] (->> path
-              io/resource
-              slurp
-              clojure.string/split-lines
-              (map parse-steps)
-              (sort-by :step)))
-
-(defn assign-steps
-  "assign steps to worker
-   Input: ({:remained-time 1} {:remained-time 0}) ; workers
-          (\"C\") ; next-steps
-   Output: {:workers ({:remained-time 1} {:step \"C\" :remained-time 63})}"
-  [workers next-steps]
-  (let [free-workers (filter (fn [worker] (< (:remained-time worker) 1)) workers)
-        busy-workers (filter (fn [worker] (pos? (:remained-time worker))) workers)]
-    (concat (filter identity
-                    (for [i (range (count free-workers))]
-                      (cond
-                        (< i (count next-steps)) {:step (nth next-steps i) :remained-time (+ 61 (- (int (char (first (nth next-steps i)))) (int \A)))}
-                        :else (nth free-workers i)))) busy-workers)
-    ))
+  [required-steps requirements]
+  (let [all-steps (->> required-steps
+                       (map (fn [key] {key 0})) ; initialize with zero
+                       (reduce conj)) ; convert into
+        ]
+    (->> requirements
+         (map (fn [step] (:next-step step)))
+         frequencies
+         (merge all-steps)
+         (sort-by key))))
 
 (defn next-snapshot
   "Make a next snapshot
@@ -148,7 +153,7 @@
         "Step B must be finished before step E can begin."
         "Step D must be finished before step E can begin."
         "Step F must be finished before step E can begin."]
-       (map parse-steps)
+       (map parse-requirement)
        (sort-by :step)
        (run-steps [{:remained-time 0}]) 
        (take 1)
@@ -156,7 +161,7 @@
        :taken-steps
        str/join)
   (->> "aoc2018_7.input"
-       parse-input
+       parse-requirements
        (run-steps [{:remained-time 0}])
        (take 1) 
        first
@@ -173,7 +178,7 @@
         "Step B must be finished before step E can begin."
         "Step D must be finished before step E can begin."
         "Step F must be finished before step E can begin."]
-       (map parse-steps)
+       (map parse-requirement)
        (sort-by :step)
        (run-steps [{:remained-time 0} {:remained-time 0}]) 
        (take 1)
@@ -181,7 +186,7 @@
        :working-time)
 
   (->> "aoc2018_7.input"
-       parse-input
+       parse-requirements
        (run-steps [{:remained-time 0} {:remained-time 0} {:remained-time 0} {:remained-time 0} {:remained-time 0}]) 
        (take 1) 
        first
