@@ -37,28 +37,12 @@
        (partition-by #(empty? %))
        (map #(str/join " " %)) ;merge multiple lines into single string
        (filter not-empty)
-       (map #(str/split % #" ")) 
-       (map (fn [passport] ; refactoring
-              (reduce conj
-                      (map
-                       (fn [passport-item]
-                         (cond
-                           (str/starts-with? passport-item "byr")
-                           {:passport/byr (let [[_ val] (re-find #"byr:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "cid")
-                           {:passport/cid (let [[_ val] (re-find #"cid:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "ecl")
-                           {:passport/ecl (let [[_ val] (re-find #"ecl:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "eyr")
-                           {:passport/eyr (let [[_ val] (re-find #"eyr:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "hcl")
-                           {:passport/hcl (let [[_ val] (re-find #"hcl:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "hgt")
-                           {:passport/hgt (let [[_ val] (re-find #"hgt:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "iyr")
-                           {:passport/iyr (let [[_ val] (re-find #"iyr:(\S+)" passport-item)] val)}
-                           (str/starts-with? passport-item "pid")
-                           {:passport/pid (let [[_ val] (re-find #"pid:(\S+)" passport-item)] val)})) passport)))))
+       (map #(re-seq #"(\S+):(\S+)" %)) ; use re-seq to remove unnecessary split 
+       (map (fn [passport]
+              (into {} ; merge maps using into
+                    (map
+                     (fn [[_ key val]] {(keyword "passport" key) val})
+                     passport)))))
   )
 
 (defn filter-invalid-passports
@@ -119,18 +103,12 @@
     (case unit
       "in" (< 58 height-value 77)
       "cm" (< 149 height-value 194)
-      :else false)
+      false)
     ))
 
-(defn check-year-range
-  "Check whether a given year value is in a given range
-   Input: 2010 2010 2020
-   Output: true"
-  [year min-year max-year]
-  (let [year-value (Integer/parseInt year)](and (>= year-value min-year) (<= year-value max-year))))
 ;; int-in
 (spec/def :tight-passport/byr (spec/and string? #(spec/int-in-range? 1920 2003 (Integer/parseInt %))))
-(spec/def :tight-passport/ecl (spec/and string? #(contains? #{"amb" "blu" "brn" "gry" "grn" "hzl" "oth"} %)))
+(spec/def :tight-passport/ecl (spec/and string? #(#{"amb" "blu" "brn" "gry" "grn" "hzl" "oth"} %)))
 (spec/def :tight-passport/eyr (spec/and string? #(spec/int-in-range? 2020 2031 (Integer/parseInt %)))) 
 (spec/def :tight-passport/hcl (spec/and string? #(re-matches #"#[a-f0-9]{6}" %)))
 (spec/def :tight-passport/hgt (spec/and string? check-height))
@@ -156,14 +134,48 @@
        (partition-by #(empty? %))
        (map #(str/join " " %)) ;merge multiple lines into single string
        (filter not-empty)
-       (map #(str/split % #" "))
-       (map (fn [passport]
-              (reduce conj
-                      (map
-                       (fn [passport-item]
-                         (let [[_ key val] (re-find #"(\S+):(\S+)" passport-item)]
-                           {(keyword "tight-passport" key) val}))
-                       passport))))))
+       (map #(re-seq #"(\S+):(\S+)" %)) ; use re-seq to remove unnecessary split 
+       (map (fn [passport] ;; map->reduce->map refactoring
+              (into {} ;merge, merge-with does not work for multi-level key
+               (map
+                (fn [[_ key val]]
+                  {(keyword "tight-passport" key) val})
+                passport))))))
+
+(comment
+  ;; = keyword - Example 1 = 
+
+  ;; (keyword name): name can be string, symbol, or keyword.
+  ;; 
+  ;; (keyword ns name): ns and name must both be string.
+  ;; 
+  ;; A keyword string, like a symbol, begins with a non-numeric
+  ;; character and can contain alphanumeric characters and *, +, !, -,
+  ;; _, and ?.  (see http://clojure.org/reader for details).
+  ;; 
+  ;; keyword does not validate input strings for ns and name, and may
+  ;; return improper keywords with undefined behavior for non-conformant
+  ;; ns and name.
+
+  user=> (keyword 'foo)
+  :foo
+
+  user=> (keyword "foo")
+  :foo
+
+  user=> (keyword "user" "foo")
+  :user/foo
+
+  ;; keyword in current namespace
+  user=> (keyword (str *ns*) "foo")
+  :user/foo
+  ;; See also:
+  name
+  keyword?
+  namespace
+  find-keyword
+  symbol
+  )
 
 (defn filter-invalid-tight-passports
   "Filter invalid passport strings"
@@ -196,7 +208,7 @@
        read-input
        parse-tight-passports 
        (filter #(spec/valid? :tight-passport/option-cid %))
-       count)
+       count) 
   )
 
 ;; refactoring: parsing -> map-> passport -> count
